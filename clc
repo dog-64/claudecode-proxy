@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Имя: clc — запуск Claude Code через прокси
+# Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
+
+TUNNEL_LOCAL_PORT=1080
+SSH_TARGET="dog@vdsina"          # ← Теперь всегда dog@vdsina
+PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
+
+# Проверяем, запущен ли туннель
+TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
+
+if [ -z "$TUNNEL_PID" ]; then
+    echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET"
+    ssh -L $TUNNEL_LOCAL_PORT:127.0.0.1:3128 -N -f $SSH_TARGET
+    TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
+    if [ -z "$TUNNEL_PID" ]; then
+        echo "❌ Не удалось запустить туннель. Проверь:"
+        echo "   - Имя хоста 'vdsina' в ~/.ssh/config"
+        echo "   - Наличие SSH-ключа для пользователя 'dog'"
+        exit 1
+    fi
+    echo "✅ Туннель запущен (PID: $TUNNEL_PID)"
+    OWN_TUNNEL=true
+else
+    echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)"
+    OWN_TUNNEL=false
+fi
+
+# Убираем блокировку прокси
+unset NO_PROXY no_proxy
+export http_proxy=$PROXY_URL
+export https_proxy=$PROXY_URL
+
+echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL"
+echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)"
+
+# Запуск
+exec claude
