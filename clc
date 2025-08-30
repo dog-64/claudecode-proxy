@@ -3,6 +3,20 @@
 # Имя: clc — запуск Claude Code через прокси
 # Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
 
+# Проверяем и загружаем nvm для Node.js 20
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    source "$HOME/.nvm/nvm.sh"
+    echo "🔧 Переключаюсь на Node.js 20..."
+    nvm use 20 >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "✅ Node.js $(node --version) активирован"
+    else
+        echo "⚠️ Не удалось переключиться на Node.js 20, продолжаю с текущей версией"
+    fi
+else
+    echo "⚠️ nvm не найден, продолжаю без переключения версии Node.js"
+fi
+
 TUNNEL_LOCAL_PORT=1080
 SSH_TARGET="dog@vdsina"          # ← Теперь всегда dog@vdsina
 PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
