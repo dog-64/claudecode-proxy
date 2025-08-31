@@ -3,30 +3,47 @@
 # Имя: clc — запуск Claude Code через прокси
 # Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
 
-LOGIN = "dog"
-HOST = "vdsina"
+# Команды, которые не требуют прокси-туннеля
+case "$1" in
+    update|mcp)
+        exec claude "$@"
+        ;;
+esac
+
+# Проверяем и загружаем nvm для Node.js 20
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    source "$HOME/.nvm/nvm.sh"
+    echo "🔧 Переключаюсь на Node.js 20..." >&2
+    nvm use 20 >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "✅ Node.js $(node --version) активирован" >&2
+    else
+        echo "⚠️ Не удалось переключиться на Node.js 20, продолжаю с текущей версией" >&2
+    fi
+else
+    echo "⚠️ nvm не найден, продолжаю без переключения версии Node.js" >&2
+fi
+
 TUNNEL_LOCAL_PORT=1080
-SSH_TARGET="$LOGIN@$HOST"          # ← Теперь всегда dog@vdsina
+SSH_TARGET="dog@vdsina"
 PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
 
 # Проверяем, запущен ли туннель
 TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
 
 if [ -z "$TUNNEL_PID" ]; then
-    echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET"
+    echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET" >&2
     ssh -L $TUNNEL_LOCAL_PORT:127.0.0.1:3128 -N -f $SSH_TARGET
     TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
     if [ -z "$TUNNEL_PID" ]; then
-        echo "❌ Не удалось запустить туннель. Проверь:"
-        echo "   - Имя хоста 'vdsina' в ~/.ssh/config"
-        echo "   - Наличие SSH-ключа для пользователя 'dog'"
+        echo "❌ Не удалось запустить туннель. Проверь:" >&2
+        echo "   - Имя хоста 'vdsina' в ~/.ssh/config" >&2
+        echo "   - Наличие SSH-ключа для пользователя 'dog'" >&2
         exit 1
     fi
-    echo "✅ Туннель запущен (PID: $TUNNEL_PID)"
-    OWN_TUNNEL=true
+    echo "✅ Туннель запущен (PID: $TUNNEL_PID)" >&2
 else
-    echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)"
-    OWN_TUNNEL=false
+    echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)" >&2
 fi
 
 # Убираем блокировку прокси
@@ -34,8 +51,8 @@ unset NO_PROXY no_proxy
 export http_proxy=$PROXY_URL
 export https_proxy=$PROXY_URL
 
-echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL"
-echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)"
+echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
+echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
 
-# Запуск Claude Code с переданными аргументами
+# Запуск
 exec claude "$@"
