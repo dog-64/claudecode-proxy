@@ -3,8 +3,10 @@
 # Имя: clc — запуск Claude Code через прокси
 # Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
 
+LOGIN = "dog"
+HOST = "vdsina"
 TUNNEL_LOCAL_PORT=1080
-SSH_TARGET="dog@vdsina"          # ← Теперь всегда dog@vdsina
+SSH_TARGET="$LOGIN@$HOST"          # ← Теперь всегда dog@vdsina
 PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
 
 # Проверяем, запущен ли туннель
@@ -35,5 +37,5 @@ export https_proxy=$PROXY_URL
 echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL"
 echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)"
 
-# Запуск
-exec claude
+# Запуск Claude Code с переданными аргументами
+exec claude "$@"
