@@ -27,6 +27,18 @@ else
     OWN_TUNNEL=false
 fi
 
+# Функция для сброса прокси переменных при завершении
+cleanup_proxy() {
+    echo "🧹 Сбрасываю прокси переменные..."
+    unset http_proxy
+    unset https_proxy
+    unset HTTP_PROXY
+    unset HTTPS_PROXY
+}
+
+# Устанавливаем trap для сброса прокси при завершении скрипта
+trap cleanup_proxy EXIT INT TERM
+
 # Убираем блокировку прокси
 unset NO_PROXY no_proxy
 export http_proxy=$PROXY_URL
