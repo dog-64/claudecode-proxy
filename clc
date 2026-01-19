@@ -2,13 +2,39 @@
 
 # Имя: clc — запуск Claude Code через прокси
 # Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
+# Использование: clc [--model glm|sonnet] [--thinking] [другие аргументы claude]
 
-# Команды, которые не требуют прокси-туннеля
-case "$1" in
-    update|mcp)
-        exec claude "$@"
-        ;;
-esac
+# Значения по умолчанию
+MODEL="glm"
+THINKING=""
+
+# Парсинг аргументов
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --model)
+            MODEL="$2"
+            shift 2
+            ;;
+        --thinking)
+            THINKING="enabled"
+            shift
+            ;;
+        update|mcp)
+            # Команды, которые не требуют прокси-туннеля
+            exec claude "$@"
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Проверяем валидность модели
+if [[ "$MODEL" != "glm" && "$MODEL" != "sonnet" ]]; then
+    echo "❌ Неверная модель: $MODEL" >&2
+    echo "   Допустимые значения: glm, sonnet" >&2
+    exit 1
+fi
 
 # Проверяем и загружаем nvm для Node.js 20
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
@@ -50,6 +76,37 @@ fi
 unset NO_PROXY no_proxy
 export http_proxy=$PROXY_URL
 export https_proxy=$PROXY_URL
+
+# Настройка переменных окружения для выбранной модели
+if [[ "$MODEL" == "glm" ]]; then
+    # Проверяем наличие необходимых переменных окружения
+    if [[ -z "$ZAI_API_TOKEN" ]]; then
+        echo "❌ Переменная ZAI_API_TOKEN не установлена" >&2
+        echo "   Добавь в ~/.zshrc или ~/.bashrc:" >&2
+        echo "   export ZAI_API_TOKEN=\"твой_токен\"" >&2
+        exit 1
+    fi
+
+    export ANTHROPIC_AUTH_TOKEN="$ZAI_API_TOKEN"
+    export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.5-air"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7"
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7"
+    export API_TIMEOUT_MS="3000000"
+    export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+    # Extended Thinking для GLM
+    if [[ "$THINKING" == "enabled" ]]; then
+        export MAX_THINKING_TOKENS=200000
+        echo "🤖 Используется модель: GLM (glm-4.7 через Z.ai)" >&2
+        echo "🧠 Extended Thinking: ВКЛЮЧЁН (MAX_THINKING_TOKENS=200000)" >&2
+    else
+        echo "🤖 Используется модель: GLM (glm-4.7 через Z.ai)" >&2
+        echo "💡 Используй --thinking для включения режима расширенного мышления" >&2
+    fi
+else
+    echo "🧠 Используется модель: Sonnet (оригинальный Anthropic)" >&2
+fi
 
 echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
 echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
