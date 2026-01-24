@@ -2,7 +2,7 @@
 
 # Имя: clc — запуск Claude Code через прокси
 # Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
-# Использование: clc [--model glm|sonnet] [--thinking] [другие аргументы claude]
+# Использование: clc [--model glm|sonnet|opus|haiku] [--thinking] [другие аргументы claude]
 
 # Значения по умолчанию
 MODEL="glm"
@@ -30,9 +30,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Проверяем валидность модели
-if [[ "$MODEL" != "glm" && "$MODEL" != "sonnet" ]]; then
+if [[ "$MODEL" != "glm" && "$MODEL" != "sonnet" && "$MODEL" != "opus" && "$MODEL" != "haiku" ]]; then
     echo "❌ Неверная модель: $MODEL" >&2
-    echo "   Допустимые значения: glm, sonnet" >&2
+    echo "   Допустимые значения: glm, sonnet, opus, haiku" >&2
     exit 1
 fi
 
@@ -105,21 +105,27 @@ if [[ "$MODEL" == "glm" ]]; then
         echo "💡 Используй --thinking для включения режима расширенного мышления" >&2
     fi
 else
-    # Для Sonnet используем оригинальный API Anthropic (подписка)
+    # Для sonnet/opus/haiku используем оригинальный API Anthropic (подписка)
     # Отключаем настройки Z.ai через временный конфиг
     TEMP_SETTINGS=$(mktemp)
     cat > "$TEMP_SETTINGS" << 'EOF'
 {}
 EOF
-    echo "🧠 Используется модель: Sonnet (оригинальный Anthropic, через прокси)" >&2
+    if [[ "$MODEL" == "sonnet" ]]; then
+        echo "🧠 Используется модель: Sonnet (оригинальный Anthropic, через прокси)" >&2
+    elif [[ "$MODEL" == "opus" ]]; then
+        echo "🚀 Используется модель: Opus (оригинальный Anthropic, через прокси)" >&2
+    elif [[ "$MODEL" == "haiku" ]]; then
+        echo "⚡ Используется модель: Haiku (оригинальный Anthropic, через прокси)" >&2
+    fi
 fi
 
 echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
 echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
 
 # Запуск
-if [[ "$MODEL" == "sonnet" ]]; then
-    exec claude --model sonnet --setting-sources local --settings "$TEMP_SETTINGS" "$@"
+if [[ "$MODEL" == "sonnet" || "$MODEL" == "opus" || "$MODEL" == "haiku" ]]; then
+    exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
     rm -f "$TEMP_SETTINGS"
 else
     exec claude "$@"
