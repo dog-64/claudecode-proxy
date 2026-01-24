@@ -105,11 +105,22 @@ if [[ "$MODEL" == "glm" ]]; then
         echo "💡 Используй --thinking для включения режима расширенного мышления" >&2
     fi
 else
-    echo "🧠 Используется модель: Sonnet (оригинальный Anthropic)" >&2
+    # Для Sonnet используем оригинальный API Anthropic (подписка)
+    # Отключаем настройки Z.ai через временный конфиг
+    TEMP_SETTINGS=$(mktemp)
+    cat > "$TEMP_SETTINGS" << 'EOF'
+{}
+EOF
+    echo "🧠 Используется модель: Sonnet (оригинальный Anthropic, через прокси)" >&2
 fi
 
 echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
 echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
 
 # Запуск
-exec claude "$@"
+if [[ "$MODEL" == "sonnet" ]]; then
+    exec claude --model sonnet --setting-sources local --settings "$TEMP_SETTINGS" "$@"
+    rm -f "$TEMP_SETTINGS"
+else
+    exec claude "$@"
+fi
