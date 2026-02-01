@@ -4,8 +4,21 @@ set -e
 
 CURRENT_DIR="$(pwd)"
 
+# Проверяем, где установлен crc (если есть)
+CRC_DIR=""
+if command -v crc >/dev/null 2>&1; then
+    CRC_PATH=$(command -v crc)
+    CRC_DIR=$(dirname "$CRC_PATH")
+    echo "📍 Найден crc в: $CRC_DIR"
+fi
+
 echo "🔍 Searching for bin directories in home folder..."
 BIN_DIRS=$(find ~ -maxdepth 2 -type d -name "*bin*" 2>/dev/null | grep -E "(bin|\.local/bin)$" | head -5)
+
+# Добавляем CRC_DIR в начало списка, если найден
+if [[ -n "$CRC_DIR" ]]; then
+    BIN_DIRS="$CRC_DIR"$'\n'"$BIN_DIRS"
+fi
 
 if [[ -z "$BIN_DIRS" ]]; then
     echo "📁 No existing bin directories found"
@@ -20,13 +33,33 @@ if [[ -z "$BIN_DIRS" ]]; then
     mkdir -p "$TARGET_DIR"
 else
     echo "📂 Found bin directories:"
-    echo "$BIN_DIRS" | nl -w2 -s'. '
+    FIRST=1
+    while IFS= read -r dir; do
+        if [[ -n "$CRC_DIR" && "$dir" == "$CRC_DIR" ]]; then
+            echo "$FIRST. $dir (где установлен crc)"
+        else
+            echo "$FIRST. $dir"
+        fi
+        ((FIRST++))
+    done <<< "$BIN_DIRS"
     echo "$(($(echo "$BIN_DIRS" | wc -l) + 1)). Create new: ~/.local/bin"
-    
-    echo -n "🎯 Select directory (1-$(($(echo "$BIN_DIRS" | wc -l) + 1))) or press Enter for ~/.local/bin: "
+
+    # Если найден CRC_DIR, делаем его дефолтным (Enter)
+    if [[ -n "$CRC_DIR" ]]; then
+        echo -n "🎯 Select directory (1-$(($(echo "$BIN_DIRS" | wc -l) + 1))) or press Enter for $CRC_DIR: "
+    else
+        echo -n "🎯 Select directory (1-$(($(echo "$BIN_DIRS" | wc -l) + 1))) or press Enter for ~/.local/bin: "
+    fi
     read -r choice
     
-    if [[ -z "$choice" ]] || [[ "$choice" -eq $(($(echo "$BIN_DIRS" | wc -l) + 1)) ]]; then
+    if [[ -z "$choice" ]]; then
+        # Enter: используем CRC_DIR если есть, иначе ~/.local/bin
+        if [[ -n "$CRC_DIR" ]]; then
+            TARGET_DIR="$CRC_DIR"
+        else
+            TARGET_DIR="$HOME/.local/bin"
+        fi
+    elif [[ "$choice" -eq $(($(echo "$BIN_DIRS" | wc -l) + 1)) ]]; then
         TARGET_DIR="$HOME/.local/bin"
         if [[ ! -d "$TARGET_DIR" ]]; then
             echo "📁 Creating $TARGET_DIR"
