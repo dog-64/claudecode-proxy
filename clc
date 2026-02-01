@@ -1,91 +1,46 @@
 #!/bin/bash
 
-# Имя: clc — запуск Claude Code через прокси
-# Назначение: Автоматически использует SSH-туннель к dog@vdsina и squid
-# Использование: clc [--model glm|sonnet] [--thinking] [другие аргументы claude]
+# clc — запуск Claude Code (GLM напрямую, остальные через прокси)
 
-# Значения по умолчанию
 MODEL="glm"
 THINKING=""
 
-# Парсинг аргументов
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --model)
-            MODEL="$2"
-            shift 2
-            ;;
-        --thinking)
-            THINKING="enabled"
-            shift
-            ;;
-        update|mcp)
-            # Команды, которые не требуют прокси-туннеля
-            exec claude "$@"
-            ;;
-        *)
-            break
-            ;;
+        --model)  MODEL="$2"; shift 2 ;;
+        --thinking) THINKING=1; shift ;;
+        update|mcp) exec claude "$@" ;;
+        *) break ;;
     esac
 done
 
-# Проверяем валидность модели
-if [[ "$MODEL" != "glm" && "$MODEL" != "sonnet" ]]; then
-    echo "❌ Неверная модель: $MODEL" >&2
-    echo "   Допустимые значения: glm, sonnet" >&2
-    exit 1
-fi
+# Валидация и описание моделей
+case "$MODEL" in
+    glm)   MODEL_NAME="GLM (glm-4.7)"      PROXY=direct ICON="🤖" ;;
+    sonnet) MODEL_NAME="Sonnet"            PROXY=tunnel ICON="🧠" ;;
+    opus)   MODEL_NAME="Opus"              PROXY=tunnel ICON="🚀" ;;
+    haiku)  MODEL_NAME="Haiku"             PROXY=tunnel ICON="⚡" ;;
+    *)      echo "❌ Неверная модель: $MODEL (допустимо: glm, sonnet, opus, haiku)" >&2; exit 1 ;;
+esac
 
-# Проверяем и загружаем nvm для Node.js 20
-if [ -s "$HOME/.nvm/nvm.sh" ]; then
+# Нормализация для Claude Code (ожидает Opus, Sonnet, Haiku)
+case "$MODEL" in
+    sonnet) MODEL="Sonnet" ;;
+    opus) MODEL="Opus" ;;
+    haiku) MODEL="Haiku" ;;
+esac
+
+# NVM
+[[ -s "$HOME/.nvm/nvm.sh" ]] && {
     source "$HOME/.nvm/nvm.sh"
-    echo "🔧 Переключаюсь на Node.js 20..." >&2
-    nvm use 20 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "✅ Node.js $(node --version) активирован" >&2
-    else
-        echo "⚠️ Не удалось переключиться на Node.js 20, продолжаю с текущей версией" >&2
-    fi
-else
-    echo "⚠️ nvm не найден, продолжаю без переключения версии Node.js" >&2
-fi
+    nvm use 20 >/dev/null 2>&1 && echo "✅ Node.js $(node --version)" >&2
+}
 
-TUNNEL_LOCAL_PORT=1080
-SSH_TARGET="dog@vdsina"
-PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
-
-# Проверяем, запущен ли туннель
-TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
-
-if [ -z "$TUNNEL_PID" ]; then
-    echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET" >&2
-    ssh -L $TUNNEL_LOCAL_PORT:127.0.0.1:3128 -N -f $SSH_TARGET
-    TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
-    if [ -z "$TUNNEL_PID" ]; then
-        echo "❌ Не удалось запустить туннель. Проверь:" >&2
-        echo "   - Имя хоста 'vdsina' в ~/.ssh/config" >&2
-        echo "   - Наличие SSH-ключа для пользователя 'dog'" >&2
-        exit 1
-    fi
-    echo "✅ Туннель запущен (PID: $TUNNEL_PID)" >&2
-else
-    echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)" >&2
-fi
-
-# Убираем блокировку прокси
-unset NO_PROXY no_proxy
-export http_proxy=$PROXY_URL
-export https_proxy=$PROXY_URL
-
-# Настройка переменных окружения для выбранной модели
-if [[ "$MODEL" == "glm" ]]; then
-    # Проверяем наличие необходимых переменных окружения
-    if [[ -z "$ZAI_API_TOKEN" ]]; then
-        echo "❌ Переменная ZAI_API_TOKEN не установлена" >&2
-        echo "   Добавь в ~/.zshrc или ~/.bashrc:" >&2
-        echo "   export ZAI_API_TOKEN=\"твой_токен\"" >&2
-        exit 1
-    fi
+if [[ "$PROXY" == "direct" ]]; then
+    # GLM — без прокси
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+    export NO_PROXY="*" no_proxy="*"
+    [[ -z "$ZAI_API_TOKEN" ]] && { echo "❌ ZAI_API_TOKEN не установлен" >&2; exit 1; }
 
     export ANTHROPIC_AUTH_TOKEN="$ZAI_API_TOKEN"
     export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
@@ -95,21 +50,33 @@ if [[ "$MODEL" == "glm" ]]; then
     export API_TIMEOUT_MS="3000000"
     export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
-    # Extended Thinking для GLM
-    if [[ "$THINKING" == "enabled" ]]; then
-        export MAX_THINKING_TOKENS=200000
-        echo "🤖 Используется модель: GLM (glm-4.7 через Z.ai)" >&2
-        echo "🧠 Extended Thinking: ВКЛЮЧЁН (MAX_THINKING_TOKENS=200000)" >&2
-    else
-        echo "🤖 Используется модель: GLM (glm-4.7 через Z.ai)" >&2
-        echo "💡 Используй --thinking для включения режима расширенного мышления" >&2
-    fi
+    [[ "$THINKING" ]] && export MAX_THINKING_TOKENS=200000
+
+    echo "$ICON $MODEL_NAME через Z.ai, без прокси" >&2
+    [[ "$THINKING" ]] && echo "🧠 Extended Thinking включён" >&2
+
+    exec claude "$@"
 else
-    echo "🧠 Используется модель: Sonnet (оригинальный Anthropic)" >&2
+    # Sonnet/Opus/Haiku — через прокси
+    TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*dog@vdsina")
+
+    [[ -z "$TUNNEL_PID" ]] && {
+        echo "🔹 Запуск туннеля 1080 → squid@vdsina" >&2
+        ssh -L 1080:127.0.0.1:3128 -N -f dog@vdsina
+        TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*dog@vdsina") || {
+            echo "❌ Туннель не запущен. Проверь ~/.ssh/config" >&2
+            exit 1
+        }
+    }
+
+    unset NO_PROXY no_proxy
+    export http_proxy=https_proxy="http://127.0.0.1:1080"
+
+    TEMP_SETTINGS=$(mktemp)
+    echo "{}" > "$TEMP_SETTINGS"
+    trap 'rm -f "$TEMP_SETTINGS"' EXIT
+
+    echo "$ICON $MODEL_NAME через Anthropic + прокси" >&2
+
+    exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
 fi
-
-echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
-echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
-
-# Запуск
-exec claude "$@"
