@@ -88,6 +88,7 @@ clc mcp       # Работа с MCP
 **Что происходит при выборе модели:**
 
 - **GLM**: Перенаправляет запросы моделей на Z.ai API
+  - Работает **напрямую, БЕЗ прокси** (API Z.ai доступен из России)
   - `ANTHROPIC_AUTH_TOKEN` — берётся из `ZAI_API_TOKEN`
   - `ANTHROPIC_BASE_URL` — `https://api.z.ai/api/anthropic`
   - `ANTHROPIC_DEFAULT_HAIKU_MODEL` → `glm-4.5-air`
@@ -96,7 +97,8 @@ clc mcp       # Работа с MCP
 
   Когда Claude запрашивает Sonnet → фактически используется GLM-4.7
 
-- **Sonnet**: Используется оригинальный API Anthropic со стандартными моделями
+- **Sonnet/Opus/Haiku**: Используется оригинальный API Anthropic со стандартными моделями
+  - Работает **через прокси** (API Anthropic заблокирован в России)
 
 ---
 

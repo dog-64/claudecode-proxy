@@ -54,31 +54,12 @@ TUNNEL_LOCAL_PORT=1080
 SSH_TARGET="dog@vdsina"
 PROXY_URL="http://127.0.0.1:$TUNNEL_LOCAL_PORT"
 
-# Проверяем, запущен ли туннель
-TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
-
-if [ -z "$TUNNEL_PID" ]; then
-    echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET" >&2
-    ssh -L $TUNNEL_LOCAL_PORT:127.0.0.1:3128 -N -f $SSH_TARGET
-    TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
-    if [ -z "$TUNNEL_PID" ]; then
-        echo "❌ Не удалось запустить туннель. Проверь:" >&2
-        echo "   - Имя хоста 'vdsina' в ~/.ssh/config" >&2
-        echo "   - Наличие SSH-ключа для пользователя 'dog'" >&2
-        exit 1
-    fi
-    echo "✅ Туннель запущен (PID: $TUNNEL_PID)" >&2
-else
-    echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)" >&2
-fi
-
-# Убираем блокировку прокси
-unset NO_PROXY no_proxy
-export http_proxy=$PROXY_URL
-export https_proxy=$PROXY_URL
-
 # Настройка переменных окружения для выбранной модели
 if [[ "$MODEL" == "glm" ]]; then
+    # Для GLM отключаем прокси — API Z.ai доступен напрямую из России
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+    export NO_PROXY="*" no_proxy="*"
+
     # Проверяем наличие необходимых переменных окружения
     if [[ -z "$ZAI_API_TOKEN" ]]; then
         echo "❌ Переменная ZAI_API_TOKEN не установлена" >&2
@@ -104,8 +85,34 @@ if [[ "$MODEL" == "glm" ]]; then
         echo "🤖 Используется модель: GLM (glm-4.7 через Z.ai)" >&2
         echo "💡 Используй --thinking для включения режима расширенного мышления" >&2
     fi
+    echo "🌐 Работает напрямую, БЕЗ прокси (API Z.ai доступен из РФ)" >&2
 else
     # Для sonnet/opus/haiku используем оригинальный API Anthropic (подписка)
+    # Нужен прокси, так как API Anthropic заблокирован в РФ
+
+    # Проверяем и запускаем туннель только если нужен прокси
+    TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
+
+    if [ -z "$TUNNEL_PID" ]; then
+        echo "🔹 Запускаю SSH-туннель: $TUNNEL_LOCAL_PORT → squid на $SSH_TARGET" >&2
+        ssh -L $TUNNEL_LOCAL_PORT:127.0.0.1:3128 -N -f $SSH_TARGET
+        TUNNEL_PID=$(pgrep -f "ssh.*-L.*$TUNNEL_LOCAL_PORT.*dog@vdsina")
+        if [ -z "$TUNNEL_PID" ]; then
+            echo "❌ Не удалось запустить туннель. Проверь:" >&2
+            echo "   - Имя хоста 'vdsina' в ~/.ssh/config" >&2
+            echo "   - Наличие SSH-ключа для пользователя 'dog'" >&2
+            exit 1
+        fi
+        echo "✅ Туннель запущен (PID: $TUNNEL_PID)" >&2
+    else
+        echo "🔹 Использую существующий туннель (PID: $TUNNEL_PID)" >&2
+    fi
+
+    # Устанавливаем прокси
+    unset NO_PROXY no_proxy
+    export http_proxy=$PROXY_URL
+    export https_proxy=$PROXY_URL
+
     # Отключаем настройки Z.ai через временный конфиг
     TEMP_SETTINGS=$(mktemp)
     cat > "$TEMP_SETTINGS" << 'EOF'
@@ -118,10 +125,9 @@ EOF
     elif [[ "$MODEL" == "haiku" ]]; then
         echo "⚡ Используется модель: Haiku (оригинальный Anthropic, через прокси)" >&2
     fi
+    echo "🌐 Работает через прокси: $PROXY_URL" >&2
+    echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
 fi
-
-echo "🌐 Запускаю Claude Code через прокси: $PROXY_URL" >&2
-echo "💡 Трафик идёт через squid на 109.234.34.112 (vdsina)" >&2
 
 # Запуск
 if [[ "$MODEL" == "sonnet" || "$MODEL" == "opus" || "$MODEL" == "haiku" ]]; then
