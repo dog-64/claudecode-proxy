@@ -38,10 +38,10 @@ fi
 
 # Проверяем и загружаем nvm для Node.js 20
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck source=/dev/null
     source "$HOME/.nvm/nvm.sh"
     echo "🔧 Переключаюсь на Node.js 20..." >&2
-    nvm use 20 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
+    if nvm use 20 >/dev/null 2>&1; then
         echo "✅ Node.js $(node --version) активирован" >&2
     else
         echo "⚠️ Не удалось переключиться на Node.js 20, продолжаю с текущей версией" >&2
@@ -131,8 +131,9 @@ fi
 
 # Запуск
 if [[ "$MODEL" == "sonnet" || "$MODEL" == "opus" || "$MODEL" == "haiku" ]]; then
+    # Удаляем временный файл после использования (через trap)
+    trap 'rm -f "$TEMP_SETTINGS"' EXIT
     exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
-    rm -f "$TEMP_SETTINGS"
 else
     exec claude "$@"
 fi
