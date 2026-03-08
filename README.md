@@ -67,7 +67,7 @@ export PROXY_HOST="твой_прокси_хост"
 
 **Пример:**
 ```bash
-export PROXY_USER="dog"
+export PROXY_USER="user"
 export PROXY_HOST="vdsina"
 ```
 
