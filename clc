@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# clc — запуск Claude Code
+# glm/по умолчанию → GLM-4.7 через Z.ai (без прокси)
+# sonnet/opus/haiku → модели Anthropic через прокси
+# Использование: clc [--model glm|sonnet|opus|haiku] [аргументы claude]
+
+MODEL="glm"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --model)
+            MODEL="$2"
+            shift 2
+            ;;
+        --model=*)
+            MODEL="${1#--model=}"
+            shift
+            ;;
+        update|mcp)
+            exec claude "$@"
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# NVM
+[[ -s "$HOME/.nvm/nvm.sh" ]] && {
+    source "$HOME/.nvm/nvm.sh"
+    nvm use 20 >/dev/null 2>&1 && echo "✅ Node.js $(node --version)" >&2
+}
+
+# Общие переменные для Z.ai
+setup_zai() {
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+    export NO_PROXY="*" no_proxy="*"
+    [[ -z "$ZAI_API_TOKEN" ]] && { echo "❌ ZAI_API_TOKEN не установлен" >&2; exit 1; }
+
+    export ANTHROPIC_AUTH_TOKEN="$ZAI_API_TOKEN"
+    export API_TIMEOUT_MS="3000000"
+    export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+}
+
+# Общие переменные для Anthropic + прокси
+setup_anthropic() {
+    TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*user@proxy-server")
+
+    [[ -z "$TUNNEL_PID" ]] && {
+        echo "🔹 Запуск туннеля 1080 → squid@proxy-server" >&2
+        ssh -L 1080:127.0.0.1:3128 -N -f user@proxy-server
+        TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*user@proxy-server") || {
+            echo "❌ Туннель не запущен. Проверь ~/.ssh/config" >&2
+            exit 1
+        }
+    }
+
+    unset NO_PROXY no_proxy 
+    unset ANTHROPIC_DEFAULT_SONNET_MODEL  ANTHROPIC_DEFAULT_OPUS_MODEL  ANTHROPIC_BASE_URL  ANTHROPIC_AUTH_TOKEN
+    export http_proxy="http://127.0.0.1:1080"
+    export https_proxy="http://127.0.0.1:1080"
+}
+
+case "$MODEL" in
+    glm|default)
+        # GLM-4.7 через Z.ai (без прокси)
+        setup_zai
+        export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
+        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7"
+#        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-5"
+
+        echo "🤖 GLM-4.7 через Z.ai (без прокси)" >&2
+        exec claude "$@"
+        ;;
+
+    sonnet|opus|haiku)
+        setup_anthropic
+
+        TEMP_SETTINGS=$(mktemp)
+        echo "{}" > "$TEMP_SETTINGS"
+        trap 'rm -f "$TEMP_SETTINGS"' EXIT
+
+        echo "🚀 $MODEL через Anthropic + прокси $http_proxy" >&2
+        exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
+#        exec claude --model "$MODEL" "$@"
+        ;;
+
+    *)
+        echo "❌ Неверная модель: $MODEL" >&2
+        echo "   Допустимо: glm, sonnet, opus, haiku" >&2
+        exit 1
+        ;;
+esac

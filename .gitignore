@@ -1,0 +1,21 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.Thumbs.db
+
+# Claude Code local settings
+.claude/
+
+# Temporary files
+tmp/
+*.tmp
+
+# Build artifacts
+*.bak
+*.orig
