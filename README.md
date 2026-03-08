@@ -68,7 +68,7 @@ export PROXY_HOST="твой_прокси_хост"
 **Пример:**
 ```bash
 export PROXY_USER="user"
-export PROXY_HOST="vdsina"
+export PROXY_HOST="proxy-server"
 ```
 
 **Требования к прокси-серверу:**

@@ -20,7 +20,7 @@ The project consists of:
 
 ## How It Works
 
-1. The `clc` script establishes an SSH tunnel to a remote server (`dog@vdsina`)
+1. The `clc` script establishes an SSH tunnel to a remote server (`user@proxy-server`)
 2. Routes traffic through a squid proxy running on the remote server
 3. Sets HTTP/HTTPS proxy environment variables
 4. Launches Claude Code with traffic routed through the proxy
@@ -35,7 +35,7 @@ The project consists of:
 
 ## Configuration
 
-The script connects to `dog@vdsina` via SSH, where `vdsina` should be configured in `~/.ssh/config` with appropriate SSH keys.
+The script connects to `user@proxy-server` via SSH, where `proxy-server` should be configured in `~/.ssh/config` with appropriate SSH keys.
 
 ## Building and Running
 
@@ -70,7 +70,7 @@ The project uses bash scripting with the following patterns:
 
 ## Environment Requirements
 
-- SSH access to the remote server (configured as 'vdsina' in ~/.ssh/config)
+- SSH access to the remote server (configured as 'proxy-server' in ~/.ssh/config)
 - Squid proxy running on the remote server (port 3128)
 - Claude Code CLI already installed (`claude` command available)
 
