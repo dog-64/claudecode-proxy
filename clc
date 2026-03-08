@@ -45,11 +45,22 @@ setup_zai() {
 
 # Общие переменные для Anthropic + прокси
 setup_anthropic() {
+    # Проверка настроек прокси
+    if [[ -z "$PROXY_USER" || -z "$PROXY_HOST" ]]; then
+        echo "⚠️  Переменные PROXY_USER/PROXY_HOST не установлены" >&2
+        echo "   Используются значения по умолчанию: user@proxy-server" >&2
+        echo "" >&2
+        echo "   Для настройки добавь в ~/.zshrc:" >&2
+        echo "   export PROXY_USER=\"your-ssh-user\"" >&2
+        echo "   export PROXY_HOST=\"your-proxy-host\"" >&2
+        echo "" >&2
+    fi
+
     TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*${PROXY_USER:-user}@${PROXY_HOST:-proxy-server}")
 
     [[ -z "$TUNNEL_PID" ]] && {
         echo "🔹 Запуск туннеля 1080 → squid@${PROXY_HOST:-proxy-server}" >&2
-        ssh -L 1080:127.0.0.1:3128 -N -f ${PROXY_USER:-user}@${PROXY_HOST:-proxy-server}
+        ssh -L 1080:127.0.0.1:3128 -N -f "${PROXY_USER:-user}@${PROXY_HOST:-proxy-server}"
         TUNNEL_PID=$(pgrep -f "ssh.*-L.*1080.*${PROXY_USER:-user}@${PROXY_HOST:-proxy-server}") || {
             echo "❌ Туннель не запущен. Проверь ~/.ssh/config" >&2
             exit 1
