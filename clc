@@ -8,6 +8,17 @@
 
 MODEL="glm"
 
+show_model_list() {
+    echo "Доступные модели для claude:" >&2
+    echo "" >&2
+    echo "  glm          GLM-4.7 через Z.ai (без прокси, по умолчанию)" >&2
+    echo "  glm-cloud-ru GLM-4.7 через Cloud.ru (без прокси)" >&2
+    echo "  sonnet       Claude Sonnet через Anthropic API (через прокси)" >&2
+    echo "  opus         Claude Opus через Anthropic API (через прокси)" >&2
+    echo "  haiku        Claude Haiku через Anthropic API (через прокси)" >&2
+    exit 0
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --model)
@@ -17,6 +28,9 @@ while [[ $# -gt 0 ]]; do
         --model=*)
             MODEL="${1#--model=}"
             shift
+            ;;
+        --model-list)
+            show_model_list
             ;;
         update|mcp)
             exec claude "$@"
