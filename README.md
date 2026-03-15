@@ -1,6 +1,6 @@
 # Claude Code Proxy
 
-Скрипт `clc` для запуска Claude Code через SSH-туннель и squid-прокси с поддержкой выбора модели (GLM или Sonnet).
+Скрипт `clc` для запуска Claude Code через SSH-туннель и squid-прокси с поддержкой выбора модели (GLM, Cloud.ru или Sonnet).
 
 ## Оглавление
 - [🚀 Быстрая установка](#-быстрая-установка)
@@ -55,7 +55,21 @@ export ZAI_API_TOKEN="твой_токен_zai"
 - Зайди на https://docs.z.ai/devpack/tool/claude
 - Получи API ключ для GLM Coding Plan
 
-### 2. Настройка прокси (для моделей Sonnet/Opus/Haiku)
+### 2. Токен Cloud.ru (для моделей GLM через Cloud.ru)
+
+```bash
+# Добавь в ~/.zshrc или ~/.bashrc
+export CLOUD_RU_API_KEY="твой_ключ_cloud_ru"
+```
+
+**Где взять ключ:**
+- Зайди в консоль Cloud.ru: https://console.cloud.ru
+- Раздел API → Foundation Models
+- Создай API ключ
+
+> API Cloud.ru доступен из России, работает без прокси
+
+### 3. Настройка прокси (для моделей Sonnet/Opus/Haiku)
 
 Для работы с моделями Anthropic необходим SSH-туннель к прокси-серверу:
 
@@ -92,6 +106,9 @@ clc
 # GLM модель (Z.ai)
 clc --model glm
 
+# GLM модель (Cloud.ru)
+clc --model cloud-ru
+
 # Sonnet модель (оригинальный Anthropic)
 clc --model sonnet
 ```
@@ -120,6 +137,14 @@ clc mcp       # Работа с MCP
 
   Когда Claude запрашивает Sonnet → фактически используется GLM-4.7
 
+- **Cloud.ru**: Перенаправляет запросы моделей на Cloud.ru API
+  - Работает **напрямую, БЕЗ прокси** (API Cloud.ru доступен из России)
+  - `ANTHROPIC_AUTH_TOKEN` — берётся из `CLOUD_RU_API_KEY`
+  - `ANTHROPIC_BASE_URL` — `https://foundation-models.api.cloud.ru/v1`
+  - `ANTHROPIC_DEFAULT_SONNET_MODEL` → `GLM-4.7`
+
+  Когда Claude запрашивает Sonnet → фактически используется GLM-4.7 от Cloud.ru
+
 - **Sonnet/Opus/Haiku**: Используется оригинальный API Anthropic со стандартными моделями
   - Работает **через прокси** (API Anthropic заблокирован в России)
 
@@ -128,8 +153,11 @@ clc mcp       # Работа с MCP
 ## ✅ Проверка: всё ли работает
 
 ```bash
-# Проверка GLM
+# Проверка GLM (Z.ai)
 clc --model glm
+
+# Проверка GLM (Cloud.ru)
+clc --model cloud-ru
 
 # Проверка Sonnet
 clc --model sonnet
@@ -144,7 +172,7 @@ clc --model sonnet
 Теперь у тебя есть:
 - Удобная команда: `clc`
 - Автоматический запуск через прокси с SSH-туннелем
-- Поддержка двух моделей: GLM (по умолчанию) и Sonnet
+- Поддержка трёх провайдеров: GLM/Z.ai (по умолчанию), GLM/Cloud.ru и Sonnet/Anthropic
 - Простое переключение между моделями через `--model`
 
 Можешь смело закрывать терминал и открывать `clc` в любое время.

@@ -2,10 +2,25 @@
 
 # clc — запуск Claude Code
 # glm/по умолчанию → GLM-4.7 через Z.ai (без прокси)
+# glm-cloud-ru → GLM-4.7 через Cloud.ru (без прокси)
 # sonnet/opus/haiku → модели Anthropic через прокси
-# Использование: clc [--model glm|sonnet|opus|haiku] [аргументы claude]
+# Использование: clc [--model glm|glm-cloud-ru|sonnet|opus|haiku] [аргументы claude]
 
 MODEL="glm"
+
+show_model_list() {
+    echo "Доступные модели для claude:" >&2
+    echo "" >&2
+    echo "  glm          GLM-4.7 через Z.ai (без прокси, по умолчанию)" >&2
+    echo "  glm-cloud-ru GLM-4.7 через Cloud.ru (без прокси)" >&2
+    echo "  sonnet       Claude Sonnet через Anthropic API (через прокси)" >&2
+    echo "  opus         Claude Opus через Anthropic API (через прокси)" >&2
+    echo "  haiku        Claude Haiku через Anthropic API (через прокси)" >&2
+    exit 0
+}
+
+# Массив для хранения аргументов, которые нужно передать в claude
+CLAUDE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -17,16 +32,22 @@ while [[ $# -gt 0 ]]; do
             MODEL="${1#--model=}"
             shift
             ;;
+        --model-list)
+            show_model_list
+            ;;
         update|mcp)
             exec claude "$@"
             ;;
         *)
-            break
+            # Сохраняем аргументы, которые не являются --model
+            CLAUDE_ARGS+=("$1")
+            shift
             ;;
     esac
 done
 
 # NVM
+# shellcheck disable=SC1091
 [[ -s "$HOME/.nvm/nvm.sh" ]] && {
     source "$HOME/.nvm/nvm.sh"
     nvm use 20 >/dev/null 2>&1 && echo "✅ Node.js $(node --version)" >&2
@@ -39,6 +60,18 @@ setup_zai() {
     [[ -z "$ZAI_API_TOKEN" ]] && { echo "❌ ZAI_API_TOKEN не установлен" >&2; exit 1; }
 
     export ANTHROPIC_AUTH_TOKEN="$ZAI_API_TOKEN"
+    export API_TIMEOUT_MS="3000000"
+    export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+}
+
+# Общие переменные для Cloud.ru
+setup_cloud_ru() {
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+    export NO_PROXY="*" no_proxy="*"
+    [[ -z "$CLOUD_RU_API_KEY" ]] && { echo "❌ CLOUD_RU_API_KEY не установлен" >&2; exit 1; }
+
+    export ANTHROPIC_AUTH_TOKEN="$CLOUD_RU_API_KEY"
+    export ANTHROPIC_BASE_URL="https://foundation-models.api.cloud.ru/v1"
     export API_TIMEOUT_MS="3000000"
     export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 }
@@ -82,7 +115,16 @@ case "$MODEL" in
 #        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-5"
 
         echo "🤖 GLM-4.7 через Z.ai (без прокси)" >&2
-        exec claude "$@"
+        exec claude "${CLAUDE_ARGS[@]}"
+        ;;
+
+    glm-cloud-ru)
+        # GLM-4.7 через Cloud.ru (без прокси)
+        setup_cloud_ru
+        export ANTHROPIC_DEFAULT_SONNET_MODEL="GLM-4.7"
+
+        echo "🤖 GLM-4.7 через Cloud.ru (без прокси)" >&2
+        exec claude "${CLAUDE_ARGS[@]}"
         ;;
 
     sonnet|opus|haiku)
@@ -93,13 +135,13 @@ case "$MODEL" in
         trap 'rm -f "$TEMP_SETTINGS"' EXIT
 
         echo "🚀 $MODEL через Anthropic + прокси $http_proxy" >&2
-        exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
+        exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "${CLAUDE_ARGS[@]}"
 #        exec claude --model "$MODEL" "$@"
         ;;
 
     *)
         echo "❌ Неверная модель: $MODEL" >&2
-        echo "   Допустимо: glm, sonnet, opus, haiku" >&2
+        echo "   Допустимо: glm, glm-cloud-ru, sonnet, opus, haiku" >&2
         exit 1
         ;;
 esac
