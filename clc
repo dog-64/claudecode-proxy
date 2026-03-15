@@ -19,6 +19,9 @@ show_model_list() {
     exit 0
 }
 
+# Массив для хранения аргументов, которые нужно передать в claude
+CLAUDE_ARGS=()
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --model)
@@ -36,7 +39,9 @@ while [[ $# -gt 0 ]]; do
             exec claude "$@"
             ;;
         *)
-            break
+            # Сохраняем аргументы, которые не являются --model
+            CLAUDE_ARGS+=("$1")
+            shift
             ;;
     esac
 done
@@ -110,7 +115,7 @@ case "$MODEL" in
 #        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-5"
 
         echo "🤖 GLM-4.7 через Z.ai (без прокси)" >&2
-        exec claude "$@"
+        exec claude "${CLAUDE_ARGS[@]}"
         ;;
 
     glm-cloud-ru)
@@ -119,7 +124,7 @@ case "$MODEL" in
         export ANTHROPIC_DEFAULT_SONNET_MODEL="GLM-4.7"
 
         echo "🤖 GLM-4.7 через Cloud.ru (без прокси)" >&2
-        exec claude "$@"
+        exec claude "${CLAUDE_ARGS[@]}"
         ;;
 
     sonnet|opus|haiku)
@@ -130,7 +135,7 @@ case "$MODEL" in
         trap 'rm -f "$TEMP_SETTINGS"' EXIT
 
         echo "🚀 $MODEL через Anthropic + прокси $http_proxy" >&2
-        exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "$@"
+        exec claude --model "$MODEL" --setting-sources local --settings "$TEMP_SETTINGS" "${CLAUDE_ARGS[@]}"
 #        exec claude --model "$MODEL" "$@"
         ;;
 
