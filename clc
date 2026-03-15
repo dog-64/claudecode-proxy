@@ -50,7 +50,7 @@ done
 # shellcheck disable=SC1091
 [[ -s "$HOME/.nvm/nvm.sh" ]] && {
     source "$HOME/.nvm/nvm.sh"
-    nvm use 20 >/dev/null 2>&1 && echo "✅ Node.js $(node --version)" >&2
+    nvm use 20 >/dev/null 2>&1 && echo "✅  Node.js $(node --version)" >&2
 }
 
 # Общие переменные для Z.ai
@@ -62,6 +62,10 @@ setup_zai() {
     export ANTHROPIC_AUTH_TOKEN="$ZAI_API_TOKEN"
     export API_TIMEOUT_MS="3000000"
     export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+    export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
+    
+#   export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-5"
 }
 
 # Общие переменные для Cloud.ru
@@ -106,15 +110,17 @@ setup_anthropic() {
     export https_proxy="http://127.0.0.1:1080"
 }
 
+debug_connection() {
+  echo "🔍  DEBUG: BASE_URL='$ANTHROPIC_BASE_URL'" >&2
+  echo "🔍  DEBUG: MODEL='${ANTHROPIC_DEFAULT_SONNET_MODEL}'" >&2
+}
+
 case "$MODEL" in
     glm|default)
-        # GLM-4.7 через Z.ai (без прокси)
         setup_zai
-        export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
-        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7"
-#        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-5"
 
-        echo "🤖 GLM-4.7 через Z.ai (без прокси)" >&2
+        debug_connection
+        echo "🤖  ${ANTHROPIC_DEFAULT_SONNET_MODEL} через Z.ai (без прокси)" >&2
         exec claude "${CLAUDE_ARGS[@]}"
         ;;
 
@@ -124,10 +130,13 @@ case "$MODEL" in
         export ANTHROPIC_DEFAULT_SONNET_MODEL="GLM-4.7"
 
         echo "🤖 GLM-4.7 через Cloud.ru (без прокси)" >&2
+
+        debug_connection
         exec claude "${CLAUDE_ARGS[@]}"
         ;;
 
     sonnet|opus|haiku)
+        echo  "sonnet"
         setup_anthropic
 
         TEMP_SETTINGS=$(mktemp)
