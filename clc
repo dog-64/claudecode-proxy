@@ -35,6 +35,10 @@ while [[ $# -gt 0 ]]; do
         --model-list)
             show_model_list
             ;;
+        -y|--you-can)
+            CLAUDE_ARGS+=("--permission-mode" "bypassPermissions")
+            shift
+            ;;
         update|mcp)
             exec claude "$@"
             ;;
